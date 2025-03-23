@@ -25,7 +25,7 @@ const char *quirc_version(void)
 
 struct quirc *quirc_new(void)
 {
-	struct quirc *q = malloc(sizeof(*q));
+	struct quirc *q = ps_malloc(sizeof(*q));
 
 	if (!q)
 		return NULL;
@@ -47,12 +47,19 @@ void quirc_destroy(struct quirc *q)
 
 int quirc_resize(struct quirc *q, int w, int h)
 {
-	uint8_t		*image  = NULL;
 	quirc_pixel_t	*pixels = NULL;
 	size_t num_vars;
 	size_t vars_byte_size;
 	struct quirc_flood_fill_vars *vars = NULL;
 
+	if (q->image)
+	{
+	  free(q->image);
+	}
+	uint8_t *new_image = ps_malloc(w * h);
+
+	if (!new_image)
+	  return -1;
 	/*
 	 * XXX: w and h should be size_t (or at least unsigned) as negatives
 	 * values would not make much sense. The downside is that it would break
@@ -66,9 +73,10 @@ int quirc_resize(struct quirc *q, int w, int h)
 	 * alloc a new buffer for q->image. We avoid realloc(3) because we want
 	 * on failure to be leave `q` in a consistant, unmodified state.
 	 */
-	image = calloc(w, h);
-	if (!image)
+	new_image = ps_malloc(w, h);
+	if (!new_image)
 		goto fail;
+	memset(new_image, 0, w *h);)
 
 	/* compute the "old" (i.e. currently allocated) and the "new"
 	   (i.e. requested) image dimensions */
@@ -81,13 +89,14 @@ int quirc_resize(struct quirc *q, int w, int h)
 	 * old buffer when the new size is greater and (b) to write beyond the
 	 * new buffer when the new size is smaller, hence the min computation.
 	 */
-	(void)memcpy(image, q->image, min);
+	(void)memcpy(new_image, q->image, min);
 
 	/* alloc a new buffer for q->pixels if needed */
 	if (!QUIRC_PIXEL_ALIAS_IMAGE) {
-		pixels = calloc(newdim, sizeof(quirc_pixel_t));
+		pixels = ps_malloc(newdim, sizeof(quirc_pixel_t));
 		if (!pixels)
 			goto fail;
+		memset(pixels, 0, sizeof(quirc_pixel_t));)
 	}
 
 	/*
@@ -113,7 +122,7 @@ int quirc_resize(struct quirc *q, int w, int h)
 	if (vars_byte_size / sizeof(*vars) != num_vars) {
 		goto fail; /* size_t overflow */
 	}
-	vars = malloc(vars_byte_size);
+	vars = ps_malloc(vars_byte_size);
 	if (!vars)
 		goto fail;
 
@@ -121,7 +130,7 @@ int quirc_resize(struct quirc *q, int w, int h)
 	q->w = w;
 	q->h = h;
 	free(q->image);
-	q->image = image;
+	q->image = new_image;
 	if (!QUIRC_PIXEL_ALIAS_IMAGE) {
 		free(q->pixels);
 		q->pixels = pixels;
@@ -133,9 +142,12 @@ int quirc_resize(struct quirc *q, int w, int h)
 	return 0;
 	/* NOTREACHED */
 fail:
-	free(image);
-	free(pixels);
-	free(vars);
+	if (new_image)
+		free(new_image);
+	if (pixels)
+		free(pixels);
+	if (vars)
+		free(vars);
 
 	return -1;
 }
