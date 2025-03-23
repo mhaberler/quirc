@@ -884,7 +884,7 @@ quirc_decode_error_t quirc_decode(const struct quirc_code *code,
 				  struct quirc_data *data)
 {
 	quirc_decode_error_t err;
-	struct datastream ds;
+	struct datastream *ds;
 
 	if (code->size > QUIRC_MAX_GRID_SIZE)
 		return QUIRC_ERROR_INVALID_GRID_SIZE;
@@ -893,7 +893,6 @@ quirc_decode_error_t quirc_decode(const struct quirc_code *code,
 		return QUIRC_ERROR_INVALID_GRID_SIZE;
 
 	memset(data, 0, sizeof(*data));
-	memset(&ds, 0, sizeof(ds));
 
 	data->version = (code->size - 17) / 4;
 
@@ -905,8 +904,9 @@ quirc_decode_error_t quirc_decode(const struct quirc_code *code,
 	err = read_format(code, data, 0);
 	if (err)
 		err = read_format(code, data, 1);
-	if (err)
+	if (err) {
 		return err;
+	}
 
 	/*
 	 * Borrow data->payload to store the raw bits.
@@ -915,17 +915,25 @@ quirc_decode_error_t quirc_decode(const struct quirc_code *code,
 	 * This trick saves the size of struct datastream, which we allocate
 	 * on the stack.
 	 */
+	ds = malloc(sizeof(struct datastream));
+	if (!ds)  {
+		return QUIRC_ERROR_MEMALLOC_FAILED;
+	}
+	memset(ds, 0, sizeof(*ds));
 
-	ds.raw = data->payload;
+	ds->raw = data->payload;
 
-	read_data(code, data, &ds);
-	err = codestream_ecc(data, &ds);
-	if (err)
+	read_data(code, data, ds);
+	err = codestream_ecc(data, ds);
+	if (err) {
+		free(ds);
 		return err;
+	}
 
-	ds.raw = NULL; /* We've done with this buffer. */
+	ds->raw = NULL; /* We've done with this buffer. */
 
-	err = decode_payload(data, &ds);
+	err = decode_payload(data, ds);
+	free(ds);
 	if (err)
 		return err;
 
