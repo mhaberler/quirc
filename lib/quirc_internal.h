@@ -19,7 +19,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
-
+#include <Arduino.h>
 #include "quirc.h"
 
 #define QUIRC_ASSERT(a)	assert(a)
