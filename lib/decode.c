@@ -921,18 +921,18 @@ quirc_decode_error_t quirc_decode(const struct quirc_code *code,
 	 * on the stack.
 	 */
 
-	ds.raw = data->payload;
+	ds->raw = data->payload;
 
-	read_data(code, data, &ds);
-	err = codestream_ecc(data, &ds);
+	read_data(code, data, ds);
+	err = codestream_ecc(data, ds);
 	if (err) {
 		free(ds);
 		return err;
 	}
 
-	ds.raw = NULL; /* We've done with this buffer. */
+	ds->raw = NULL; /* We've done with this buffer. */
 
-	err = decode_payload(data, &ds);
+	err = decode_payload(data, ds);
 	if (err) {
 		free(ds);
 		return err;
